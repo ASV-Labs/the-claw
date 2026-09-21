@@ -1,0 +1,13 @@
+== DESIGN GATE VERIFY — /tmp/the-claw-gate ==
+pages: page.html
+mode : static heuristics on raw HTML/CSS (no rendering). A clean exit is necessary,
+       never sufficient — WDI-011 + WDI-014 review remains authoritative; false negatives are
+       expected and disclosed (ADR-0002).
+[HARD-FAIL] VPM-2          page.html
+             html.bebas_neue_a500ece9-module__OELc7G__variable.figtree_acf6beea-module__RJlwzG__variable.ibm_plex_mono_d5120981-module__-0Tr6a__variable > body > main.cabinet.relative.h-dvh.w-full.overflow-hidden > div.pointer-events-none.relative.z-30.flex.h-full.flex-col: runnable DOM contract failed — missing statically eligible semantic visitor control, missing readable no-JS/unavailable explanation
+[WARN     ] HF-6?          page.html
+             1 card-like section(s) vs budget 0; note carries a justification ('0 / 0 / prize and city tokens are physics objects in the pit'…) — review judges it (heuristic)
+[INFO     ] CARDS          page.html
+             html.bebas_neue_a500ece9-module__OELc7G__variable.figtree_acf6beea-module__RJlwzG__variable.ibm_plex_mono_d5120981-module__-0Tr6a__variable > body > main.cabinet.relative.h-dvh.w-full.overflow-hidden > div.absolute.inset-0 > button.token ×4: card-like sibling group (counts against budget)
+
+1 hard-fail signature(s) · 1 warning(s) · exit 1

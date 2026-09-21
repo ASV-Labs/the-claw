@@ -1,0 +1,168 @@
+import type { Corpus, CorpusId, Prize } from "@/lib/types";
+import { DINNER, GIFTS, MOVIES, WINE } from "./nights";
+import { DO, EATS, PUBS } from "./places";
+import { SERIES } from "./series";
+
+export const CORPORA: Record<CorpusId, Corpus> = {
+  eats: {
+    id: "eats",
+    label: "Eats",
+    tagline: "Everywhere you could eat tonight. Ask for what you actually want.",
+    collection: "restaurants",
+    subject: "restaurant",
+    shape: "chip",
+    needsPlace: true,
+    examples: [
+      "somewhere quiet enough to actually talk",
+      "hangover food, cheap, no queue",
+      "vegetarian but not boring",
+      "properly spicy, I mean it",
+      "late night, after the pub",
+    ],
+    refinements: ["and vegetarian", "and cheap", "without a queue", "open late"],
+    items: EATS,
+  },
+  dinner: {
+    id: "dinner",
+    label: "Dinner",
+    tagline: "What to cook, not another list of 40-minute recipes you will not make.",
+    collection: "dinners",
+    subject: "dinner",
+    shape: "chip",
+    needsPlace: false,
+    examples: [
+      "twenty minutes, I am ruined",
+      "vegetarian, not sad",
+      "something that makes the house smell good",
+      "spicy and cheap",
+      "impress one person without a project",
+    ],
+    refinements: ["and vegetarian", "and fast", "and cheap", "nothing spicy"],
+    items: DINNER,
+  },
+  pubs: {
+    id: "pubs",
+    label: "Pubs",
+    tagline: "A fire, a garden, eight of you, or last orders. Say which.",
+    collection: "pubs and bars",
+    subject: "pub",
+    shape: "chip",
+    needsPlace: true,
+    examples: [
+      "a pub with a fire and no music",
+      "quiet enough to talk",
+      "somewhere that will take eight of us",
+      "a garden to sit in the sun",
+      "proper cask ale, no cocktails",
+    ],
+    refinements: ["and quiet", "with a garden", "that takes bookings", "open late"],
+    items: PUBS,
+  },
+  wine: {
+    id: "wine",
+    label: "Wine",
+    tagline: "Name the food and the mood. The bottle comes up.",
+    collection: "wines",
+    subject: "wine",
+    shape: "chip",
+    needsPlace: false,
+    examples: [
+      "cheap, oysters, Tuesday",
+      "steak, not a lecture",
+      "spicy food, off-dry is fine",
+      "something to bring to theirs",
+      "celebration, I will feel it tomorrow",
+    ],
+    refinements: ["and cheap", "and sparkling", "nothing funky", "under £20"],
+    items: WINE,
+  },
+  movies: {
+    id: "movies",
+    label: "Movies",
+    tagline: "Stop scrolling the grid. Describe the evening.",
+    collection: "films",
+    subject: "film",
+    shape: "poster",
+    needsPlace: false,
+    examples: [
+      "something to fall asleep to",
+      "films where the twist actually works",
+      "under two hours and not depressing",
+      "watching with my mum, nothing awkward",
+      "I want to be scared but not upset",
+    ],
+    refinements: ["and under two hours", "nothing depressing", "no subtitles", "and funny"],
+    items: MOVIES,
+  },
+  series: {
+    id: "series",
+    label: "Series",
+    tagline: "Every flagship series on the big streamers. Ask for the night you want.",
+    collection: "television series",
+    subject: "series",
+    shape: "poster",
+    needsPlace: false,
+    examples: [
+      "only a few episodes and it ended properly",
+      "something we can both agree on",
+      "funny, no plot, on in the background",
+      "I want to be gripped but not upset",
+      "good with my parents",
+    ],
+    refinements: ["and short", "that actually finished", "nothing heavy", "on Netflix"],
+    items: SERIES,
+  },
+  do: {
+    id: "do",
+    label: "Do",
+    tagline: "Describe Saturday, not your search terms.",
+    collection: "things to do",
+    subject: "thing to do",
+    shape: "chip",
+    needsPlace: true,
+    examples: [
+      "free, indoors, it is raining",
+      "my parents are visiting and they are in their seventies",
+      "a first date that is not just drinks",
+      "somewhere to take a four year old",
+      "I have two hours and a hangover",
+    ],
+    refinements: ["and free", "and indoors", "and good for kids", "under two hours"],
+    items: DO,
+  },
+  gifts: {
+    id: "gifts",
+    label: "Gifts",
+    tagline: "Not another mug. Say who they are.",
+    collection: "gifts",
+    subject: "gift",
+    shape: "chip",
+    needsPlace: false,
+    examples: [
+      "parents, they have too many things",
+      "under twenty, actually useful",
+      "a cook who already has pans",
+      "first date energy, not a toaster",
+      "winter, they are always cold",
+    ],
+    refinements: ["and cheap", "and useful", "nothing cute", "an experience"],
+    items: GIFTS,
+  },
+};
+
+export const CORPUS_ORDER: CorpusId[] = [
+  "eats",
+  "dinner",
+  "pubs",
+  "wine",
+  "movies",
+  "series",
+  "do",
+  "gifts",
+];
+
+export function prizesFor(corpus: Corpus, city: string | null): Prize[] {
+  if (!corpus.needsPlace) return corpus.items;
+  if (!city) return [];
+  return corpus.items.filter((item) => item.group === city);
+}

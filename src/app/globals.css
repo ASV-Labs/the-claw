@@ -1,0 +1,231 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-hud), ui-monospace, monospace;
+  --color-cabinet: #0e0c0a;
+  --color-felt: #5c1420;
+  --color-felt-deep: #3a0d14;
+  --color-ivory: #f3ebd8;
+  --color-claw: #e7a21b;
+  --color-brass: #c4a35a;
+  --color-muted: #cbbfa6;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-cabinet);
+  color: var(--color-ivory);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  overflow: hidden;
+}
+
+.cabinet {
+  background: var(--color-cabinet);
+}
+
+.felt-floor {
+  background-color: var(--color-felt-deep);
+  background-image: repeating-linear-gradient(
+    -18deg,
+    color-mix(in oklab, var(--color-felt) 55%, black) 0 2px,
+    transparent 2px 7px
+  );
+}
+
+.wordmark {
+  font-family: var(--font-display), Impact, "Arial Narrow", sans-serif;
+  letter-spacing: 0.08em;
+  color: var(--color-claw);
+  font-weight: 400;
+  line-height: 0.9;
+}
+
+.hud-label {
+  font-family: var(--font-hud), ui-monospace, monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: var(--color-muted);
+}
+
+.token {
+  width: calc(var(--token-size, 34px) + 22px * var(--arrived, 0));
+  height: calc(var(--token-size, 34px) + 22px * var(--arrived, 0));
+  will-change: transform;
+  user-select: none;
+  place-items: center;
+  transition:
+    width 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.3s;
+  display: grid;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.token[data-risen="true"] {
+  z-index: 20;
+}
+
+.token[data-shape="poster"] {
+  width: calc(26px + 68px * var(--arrived, 0));
+  height: calc(38px + 102px * var(--arrived, 0));
+}
+
+.token[data-city="true"] {
+  width: 88px;
+  height: 88px;
+}
+
+.token[data-city="true"] .token-glyph {
+  font-size: 28px;
+}
+
+.token[data-city="true"] .token-label {
+  opacity: 1;
+}
+
+.token-glyph {
+  width: 100%;
+  height: 100%;
+  line-height: 1;
+  font-size: calc(16px + 8px * var(--arrived, 0));
+  border-radius: 9999px;
+  place-items: center;
+  display: grid;
+  overflow: hidden;
+  position: relative;
+  background: var(--color-cabinet);
+  color: var(--color-ivory);
+  box-shadow: inset 0 0 0 1.5px var(--color-brass);
+}
+
+.token[data-shape="poster"] .token-glyph {
+  border-radius: 3px;
+}
+
+.token[data-risen="true"] .token-glyph {
+  box-shadow:
+    inset 0 0 0 1.5px var(--color-claw),
+    0 10px 28px -12px #000000aa;
+}
+
+.token-face {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.token-face-title {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 10%;
+  font-size: calc(0px + 9px * var(--arrived, 0));
+  line-height: 1.15;
+  font-weight: 600;
+  opacity: var(--arrived, 0);
+  text-align: center;
+}
+
+.token-label {
+  text-align: center;
+  pointer-events: none;
+  width: max-content;
+  opacity: var(--arrived, 0);
+  margin-top: 0.45rem;
+  transition: opacity 0.26s;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  translate: -50%;
+}
+
+.claw-rig {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 25;
+  width: 72px;
+  margin-left: -36px;
+  color: var(--color-claw);
+  pointer-events: none;
+  transform: translateY(-40%);
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.claw-rig[data-asking="true"] {
+  transform: translateY(8%);
+}
+
+@keyframes rise-in {
+  0% {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0;
+  }
+}
+
+.animate-rise-in {
+  animation: 0.42s cubic-bezier(0.22, 1, 0.36, 1) both rise-in;
+}
+
+@keyframes example-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-example {
+  animation: 0.42s cubic-bezier(0.22, 1, 0.36, 1) both example-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise-in,
+  .animate-example,
+  .claw-rig {
+    animation: none;
+    transition: none;
+  }
+}
+
+.tab-scroll {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tab-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.ask-dock {
+  background: color-mix(in oklab, var(--color-cabinet) 88%, black);
+  border: 1px solid color-mix(in oklab, var(--color-brass) 45%, transparent);
+}
+
+.ticket {
+  border: 1px solid color-mix(in oklab, var(--color-brass) 35%, transparent);
+  background: color-mix(in oklab, var(--color-cabinet) 70%, black);
+}
