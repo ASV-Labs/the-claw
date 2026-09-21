@@ -229,3 +229,117 @@ body {
   border: 1px solid color-mix(in oklab, var(--color-brass) 35%, transparent);
   background: color-mix(in oklab, var(--color-cabinet) 70%, black);
 }
+
+.token-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.place-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.place-chip {
+  min-height: 72px;
+  border: 1px solid color-mix(in oklab, var(--color-brass) 40%, transparent);
+  background: color-mix(in oklab, var(--color-cabinet) 55%, black);
+  color: var(--color-ivory);
+  border-radius: 16px;
+  padding: 14px 12px;
+  text-align: left;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.place-chip:active {
+  border-color: var(--color-claw);
+  color: var(--color-claw);
+}
+
+.here-btn {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 16px;
+  background: var(--color-claw);
+  color: var(--color-cabinet);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+@media (max-width: 700px) {
+  .cabinet[data-phone="true"] {
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+    height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .cabinet[data-phone="true"] .felt-floor {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    z-index: 0;
+  }
+
+  .cabinet[data-phone="true"] .claw-rig {
+    display: none;
+  }
+
+  .cabinet[data-phone="true"] .phone-header {
+    padding: 10px 12px 6px;
+  }
+
+  .cabinet[data-phone="true"] .wordmark {
+    font-size: 28px;
+  }
+
+  .cabinet[data-phone="true"] .phone-tabs {
+    width: 100%;
+    max-width: none;
+    justify-content: flex-start;
+    padding: 0 8px 8px;
+  }
+
+  .cabinet[data-phone="true"] .phone-tabs button {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 14px;
+  }
+
+  .cabinet[data-phone="true"] .phone-pit {
+    position: relative;
+    min-height: 0;
+  }
+
+  .cabinet[data-phone="true"] .ask-dock {
+    margin: 0 10px 10px;
+    border-radius: 18px;
+  }
+
+  .cabinet[data-phone="true"] .ask-dock input {
+    height: 52px;
+    font-size: 16px;
+  }
+
+  .cabinet[data-phone="true"] .token[data-city="true"] {
+    display: none;
+  }
+
+  .cabinet[data-phone="true"] .token {
+    width: 44px;
+    height: 44px;
+  }
+
+  .cabinet[data-phone="true"] .token[data-shape="poster"] {
+    width: calc(36px + 70px * var(--arrived, 0));
+    height: calc(52px + 100px * var(--arrived, 0));
+  }
+
+  .cabinet[data-phone="true"] .token-label {
+    font-size: 10px;
+  }
+}

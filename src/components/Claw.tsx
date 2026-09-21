@@ -10,13 +10,10 @@ import { ClawMark } from "./ClawMark";
 const RADIUS = 18;
 const POSTER_CELL = { width: 124, height: 186 };
 const CHIP_CELL = { width: 118, height: 88 };
-const SUGGEST = [
-  "text-claw/80 hover:text-claw",
-  "text-ivory/70 hover:text-ivory",
-  "text-brass hover:text-claw",
-];
-
+const SUGGEST = ["text-claw/80 hover:text-claw", "text-ivory/70 hover:text-ivory", "text-brass hover:text-claw"];
 const cache = new Map<string, Map<string, number>>();
+
+type Coords = { lat: number; lng: number };
 
 function readCity(): CityId | null {
   if (typeof window === "undefined") return null;
@@ -27,14 +24,20 @@ function readCity(): CityId | null {
 export function Claw() {
   const [corpusId, setCorpusId] = useState<CorpusId>("eats");
   const [city, setCity] = useState<CityId | null>(null);
+  const [coords, setCoords] = useState<Coords | null>(null);
+  const [placeLabel, setPlaceLabel] = useState("");
+  const [catalogSource, setCatalogSource] = useState("");
+  const [liveItems, setLiveItems] = useState<Prize[] | null>(null);
+  const [loadingPit, setLoadingPit] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [phone, setPhone] = useState(false);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"idle" | "thinking" | "ready" | "error">("idle");
   const [error, setError] = useState("");
   const [verdicts, setVerdicts] = useState<Map<string, number> | null>(null);
-  const [answeredQuery, setAnsweredQuery] = useState("");
   const [missing, setMissing] = useState(0);
   const [source, setSource] = useState("");
-  const [size, setSize] = useState({ width: 1440, height: 900 });
+  const [size, setSize] = useState({ width: 390, height: 844 });
   const [suggestTick, setSuggestTick] = useState(0);
   const [exampleTick, setExampleTick] = useState(0);
   const readyAt = useRef(0);
@@ -46,20 +49,67 @@ export function Claw() {
   const frameRef = useRef(0);
 
   const corpus = CORPORA[corpusId];
-  const needsCity = corpus.needsPlace && !city;
-  const items = useMemo(() => prizesFor(corpus, city), [corpus, city]);
+  const needsPlace = corpus.live === "nearby" ? !coords && !city : corpus.needsPlace && !city;
+  const fallbackItems = useMemo(() => prizesFor(corpus, city), [corpus, city]);
+  const items = liveItems ?? fallbackItems;
   const cell = corpus.shape === "poster" ? POSTER_CELL : CHIP_CELL;
 
   useEffect(() => {
     setCity(readCity());
+    const media = window.matchMedia("(max-width: 700px)");
+    const apply = () => setPhone(media.matches);
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      if (corpus.live === "nearby" && !coords && !city) {
+        setLiveItems(null);
+        setCatalogSource("");
+        return;
+      }
+      setLoadingPit(true);
+      try {
+        const params = new URLSearchParams({ corpus: corpusId });
+        if (city) params.set("city", city);
+        if (coords) {
+          params.set("lat", String(coords.lat));
+          params.set("lng", String(coords.lng));
+        }
+        const response = await fetch(`/api/catalog?${params}`, { signal: controller.signal });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "catalog");
+        setLiveItems(payload.items ?? []);
+        setCatalogSource(payload.source ?? "");
+        if (payload.placeLabel) setPlaceLabel(payload.placeLabel);
+      } catch (caught) {
+        if ((caught as { name?: string }).name === "AbortError") return;
+        setLiveItems(fallbackItems);
+        setCatalogSource("snapshot");
+      } finally {
+        setLoadingPit(false);
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [corpusId, city, coords, corpus.live, fallbackItems]);
+
   const layout = useMemo(() => {
-    const perRow = Math.max(1, Math.floor(Math.min(size.width - 64, 1100) / cell.width));
-    const top = Math.max(250, 0.28 * size.height);
-    const rows = Math.max(1, Math.floor((size.height - 220 - top) / cell.height));
-    return { cell, perRow, top, capacity: perRow * rows };
-  }, [size, cell]);
+    const width = Math.max(1, size.width);
+    const height = Math.max(1, size.height);
+    const unit = phone
+      ? corpus.shape === "poster"
+        ? { width: 108, height: 168 }
+        : { width: 96, height: 86 }
+      : cell;
+    const perRow = Math.max(1, Math.floor(Math.min(width - 24, phone ? width - 16 : 1100) / unit.width));
+    const top = phone ? Math.max(90, 0.12 * height) : Math.max(250, 0.28 * height);
+    const rows = Math.max(1, Math.floor((height - (phone ? 180 : 220) - top) / unit.height));
+    return { cell: unit, perRow, top, capacity: perRow * rows };
+  }, [size, cell, phone, corpus.shape]);
 
   const risen = useMemo(() => {
     if (!verdicts) return [];
@@ -88,8 +138,8 @@ export function Claw() {
   }, [status, query, suggestTick, corpus]);
 
   const example = useMemo(
-    () => (query || status === "thinking" ? "" : corpus.examples[exampleTick % corpus.examples.length]),
-    [query, status, exampleTick, corpus],
+    () => (query || status === "thinking" || needsPlace ? "" : corpus.examples[exampleTick % corpus.examples.length]),
+    [query, status, exampleTick, corpus, needsPlace],
   );
 
   const bindNode = useCallback((id: string, node: HTMLElement | null) => {
@@ -118,17 +168,17 @@ export function Claw() {
     engine.setTargets(targets, performance.now());
   }, [risen, layout]);
 
-  const physicsKey = `${corpusId}:${city ?? "none"}:${needsCity ? "ask" : items.length}`;
-  const physicsIds = needsCity ? CITIES.map((entry) => entry.id) : items.map((item) => item.id);
-  const radius = needsCity ? 42 : RADIUS;
+  const physicsIds = needsPlace ? [] : items.map((item) => item.id);
+  const physicsKey = `${corpusId}:${city ?? "none"}:${coords ? "geo" : "nogeo"}:${physicsIds.length}:${phone ? "p" : "d"}`;
+  const radius = phone ? 22 : RADIUS;
 
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     const engine = new HeapPhysics(radius);
     engineRef.current = engine;
-    engine.setBounds(root.clientWidth, root.clientHeight, 52, physicsIds.length);
-    engine.seed(physicsIds);
+    engine.setBounds(root.clientWidth, root.clientHeight, phone ? 168 : 52, Math.max(1, physicsIds.length));
+    if (physicsIds.length) engine.seed(physicsIds);
     setSize({ width: root.clientWidth, height: root.clientHeight });
     const tick = (now: number) => {
       engine.step(now);
@@ -142,7 +192,7 @@ export function Claw() {
     };
     frameRef.current = requestAnimationFrame(tick);
     const onResize = () => {
-      engine.setBounds(root.clientWidth, root.clientHeight, 52, physicsIds.length);
+      engine.setBounds(root.clientWidth, root.clientHeight, phone ? 168 : 52, Math.max(1, physicsIds.length));
       setSize({ width: root.clientWidth, height: root.clientHeight });
     };
     window.addEventListener("resize", onResize);
@@ -150,7 +200,7 @@ export function Claw() {
       cancelAnimationFrame(frameRef.current);
       window.removeEventListener("resize", onResize);
     };
-  }, [physicsKey, physicsIds.length, radius]);
+  }, [physicsKey, physicsIds.length, radius, phone]);
 
   useEffect(() => {
     applyTargets();
@@ -167,15 +217,42 @@ export function Claw() {
     window.localStorage.setItem(CITY_STORAGE_KEY, next);
     abortRef.current?.abort();
     nodes.current.clear();
+    setCoords(null);
     setCity(next);
+    setPlaceLabel(CITIES.find((entry) => entry.id === next)?.label ?? next);
     setQuery("");
     resetAnswers();
+  };
+
+  const useHere = () => {
+    if (!navigator.geolocation) {
+      setError("This phone will not share a location.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        abortRef.current?.abort();
+        nodes.current.clear();
+        setCity(null);
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setQuery("");
+        resetAnswers();
+      },
+      () => {
+        setLocating(false);
+        setError("Location denied. Pick a city instead.");
+      },
+      { enableHighAccuracy: true, timeout: 12000 },
+    );
   };
 
   const switchCorpus = (id: CorpusId) => {
     abortRef.current?.abort();
     nodes.current.clear();
     setCorpusId(id);
+    setLiveItems(null);
     setQuery("");
     resetAnswers();
   };
@@ -184,19 +261,18 @@ export function Claw() {
     async (text: string) => {
       const trimmed = text.trim();
       abortRef.current?.abort();
-      if (needsCity || trimmed.length < 3) {
+      if (needsPlace || trimmed.length < 3) {
         setVerdicts(null);
         setStatus("idle");
         setError("");
         setSource("");
         return;
       }
-      const key = `${corpusId}::${city ?? "any"}::${trimmed.toLowerCase().replace(/\s+/g, " ")}`;
+      const key = `${corpusId}::${city ?? "any"}::${coords ? `${coords.lat.toFixed(3)},${coords.lng.toFixed(3)}` : ""}::${trimmed.toLowerCase().replace(/\s+/g, " ")}`;
       const hit = cache.get(key);
       if (hit) {
         setVerdicts(hit);
         setMissing(0);
-        setAnsweredQuery(trimmed);
         readyAt.current = Date.now();
         setStatus("ready");
         return;
@@ -209,7 +285,13 @@ export function Claw() {
         const response = await fetch("/api/ask", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ query: trimmed, corpus: corpusId, group: city }),
+          body: JSON.stringify({
+            query: trimmed,
+            corpus: corpusId,
+            group: city,
+            lat: coords?.lat,
+            lng: coords?.lng,
+          }),
           signal: controller.signal,
         });
         const payload = await response.json();
@@ -227,7 +309,8 @@ export function Claw() {
         setVerdicts(next);
         setMissing(payload.missing?.length ?? 0);
         setSource(payload.source ?? "");
-        setAnsweredQuery(trimmed);
+        if (payload.catalogSource) setCatalogSource(payload.catalogSource);
+        if (payload.placeLabel) setPlaceLabel(payload.placeLabel);
         readyAt.current = Date.now();
         setStatus("ready");
       } catch (caught) {
@@ -236,7 +319,7 @@ export function Claw() {
         setError("Could not reach Jev. Check the line and try again.");
       }
     },
-    [corpusId, city, needsCity],
+    [corpusId, city, coords, needsPlace],
   );
 
   useEffect(() => {
@@ -263,246 +346,231 @@ export function Claw() {
     inputRef.current?.focus();
   };
 
-  const footerSource =
-    source === "heuristic"
-      ? "local heuristic · add a TypeSafe key for live Jev"
-      : source === "gateway"
-        ? "TypeSafe Jev via Vercel AI Gateway"
-        : "TypeSafe Jev";
+  const footerSource = [
+    catalogSource,
+    source === "heuristic" ? "local heuristic" : source === "gateway" ? "Jev via Gateway" : source ? "TypeSafe Jev" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
-  const cityLabel = CITIES.find((entry) => entry.id === city)?.label;
-  const tokens: Prize[] = needsCity
-    ? CITIES.map((entry) => ({
-        id: entry.id,
-        name: entry.label,
-        glyph: entry.glyph,
-        group: entry.id,
-        meta: "pick a city",
-        facts: "",
-      }))
-    : items;
+  const hereLabel = placeLabel || (coords ? "Near you" : CITIES.find((entry) => entry.id === city)?.label);
+
+  const askDock = (
+    <div className="ask-dock relative rounded-2xl focus-within:border-claw">
+      <div className="pointer-events-none absolute inset-0 z-20 flex items-center overflow-hidden pr-14 pl-5 text-[17px] whitespace-pre">
+        <span aria-hidden className="invisible">
+          {query}
+        </span>
+        {example ? (
+          <button
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              setQuery(example);
+              inputRef.current?.focus();
+            }}
+            tabIndex={-1}
+            className="animate-example pointer-events-auto text-left text-ivory/35 transition-colors hover:text-ivory/80"
+          >
+            {example}
+          </button>
+        ) : null}
+        {refinement ? (
+          <button
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setSuggestTick((n) => n + 1)}
+            tabIndex={-1}
+            className={`animate-example pointer-events-auto ${SUGGEST[suggestTick % SUGGEST.length]}`}
+          >
+            {" "}
+            {refinement}
+          </button>
+        ) : null}
+      </div>
+      <input
+        ref={inputRef}
+        value={query}
+        disabled={needsPlace}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setSuggestTick(0);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            if (refinement) addRefinement();
+            else void ask(query);
+          } else if (event.key === "Escape") {
+            setQuery("");
+            resetAnswers();
+          }
+        }}
+        maxLength={160}
+        aria-label="Ask the claw"
+        className="relative z-10 h-16 w-full bg-transparent pr-16 pl-5 text-[17px] text-ivory outline-none disabled:opacity-40"
+      />
+      <div className="absolute top-1/2 right-4 z-30 flex -translate-y-1/2 items-center gap-1">
+        {status === "thinking" || loadingPit ? (
+          <span className="hud-label text-claw">{loadingPit ? "loading" : "asking"}</span>
+        ) : query ? (
+          <button
+            onClick={() => {
+              abortRef.current?.abort();
+              setQuery("");
+              resetAnswers();
+            }}
+            aria-label="Clear"
+            className="grid size-7 place-items-center rounded-full text-muted hover:text-ivory"
+          >
+            ×
+          </button>
+        ) : (
+          <span className="hud-label">ask</span>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <main
       ref={rootRef}
       className="cabinet relative h-dvh w-full overflow-hidden"
-      style={{ ["--token-size" as string]: `${2 * RADIUS}px` }}
+      data-phone={phone}
+      data-wdi-product-proof="runnable-dom"
+      data-wdi-source-ref="src/app/page.tsx"
+      style={{ ["--token-size" as string]: `${2 * radius}px` }}
     >
       <div className="felt-floor pointer-events-none absolute inset-x-0 bottom-0 h-[42%] opacity-90" />
-      <div className="claw-rig" data-asking={status === "thinking"}>
-        <ClawMark className="h-24 w-24" />
-      </div>
+      {!phone ? (
+        <div className="claw-rig" data-asking={status === "thinking"}>
+          <ClawMark className="h-24 w-24" />
+        </div>
+      ) : null}
 
-      <div className="absolute inset-0">
-        {tokens.map((item) => {
-          const probability = verdicts?.get(item.id) ?? 0;
-          const isUp = risenIds.has(item.id);
-          return (
-            <button
-              key={item.id}
-              type="button"
-              ref={(node) => bindNode(item.id, node)}
-              className="token"
-              data-risen={isUp}
-              data-city={needsCity}
-              data-shape={needsCity ? "chip" : corpus.shape}
-              style={{ opacity: verdicts && !isUp ? 0.38 : 1 }}
-              title={isUp ? `${item.name} — ${Math.round(100 * probability)}%` : item.name}
-              onClick={() => {
-                if (needsCity) chooseCity(item.id as CityId);
-              }}
-            >
-              <span className="token-glyph">
-                <span className="token-face">
-                  <span>{item.glyph}</span>
-                  <span className="token-face-title">{item.name}</span>
-                </span>
-              </span>
-              <span className="token-label" style={{ maxWidth: layout.cell.width - 12 }}>
-                <span className="line-clamp-2 block text-[11px] leading-tight font-medium text-ivory">{item.name}</span>
-                <span className="mt-0.5 block text-[10px] leading-tight text-muted">{item.meta}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div
-        className="pointer-events-none relative z-30 flex h-full flex-col"
-        data-wdi-product-proof="runnable-dom"
-        data-wdi-source-ref="src/app/page.tsx"
-      >
-        <header className="pointer-events-auto flex flex-wrap items-start justify-between gap-3 px-5 py-4 sm:px-8">
-          <div className="flex items-center gap-3">
-            <ClawMark className="size-10 text-claw" />
-            <div>
-              <p className="hud-label">Player 1 · Insert ask</p>
-              <h1 className="wordmark text-[34px] sm:text-[42px]">THE CLAW</h1>
-            </div>
+      <header className="phone-header pointer-events-auto relative z-40 flex items-center justify-between gap-3 px-5 py-3 sm:px-8">
+        <div className="flex min-w-0 items-center gap-2">
+          <ClawMark className="size-8 shrink-0 text-claw" />
+          <div className="min-w-0">
+            <p className="hud-label hidden sm:block">Player 1 · Insert ask</p>
+            <h1 className="wordmark text-[28px] leading-none sm:text-[42px]">THE CLAW</h1>
           </div>
-          <div className="flex min-w-0 flex-1 flex-col items-end gap-2">
-            <nav aria-label="Prize pits" className="tab-scroll ticket flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full p-1">
-              {CORPUS_ORDER.map((id) => (
-                <button
-                  key={id}
-                  onClick={() => switchCorpus(id)}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium tracking-wide transition-colors ${
-                    corpusId === id ? "bg-claw text-cabinet" : "text-muted hover:text-ivory"
-                  }`}
-                >
-                  {CORPORA[id].label}
+        </div>
+        {corpus.live === "nearby" || corpus.needsPlace ? (
+          <button
+            type="button"
+            onClick={() => {
+              if (coords || city) {
+                setCoords(null);
+                window.localStorage.removeItem(CITY_STORAGE_KEY);
+                setCity(null);
+                setLiveItems(null);
+                setPlaceLabel("");
+                resetAnswers();
+              } else useHere();
+            }}
+            className="shrink-0 rounded-full border border-brass/40 px-3 py-2 text-xs text-ivory"
+          >
+            {hereLabel ? `${hereLabel} · change` : locating ? "Finding you…" : "Location"}
+          </button>
+        ) : null}
+      </header>
+
+      <nav aria-label="Prize pits" className="phone-tabs tab-scroll ticket relative z-40 mx-3 flex items-center gap-0.5 overflow-x-auto rounded-full p-1 sm:absolute sm:top-4 sm:right-8 sm:mx-0 sm:max-w-[60%]">
+        {CORPUS_ORDER.map((id) => (
+          <button
+            key={id}
+            onClick={() => switchCorpus(id)}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium tracking-wide transition-colors ${
+              corpusId === id ? "bg-claw text-cabinet" : "text-muted hover:text-ivory"
+            }`}
+          >
+            {CORPORA[id].label}
+          </button>
+        ))}
+      </nav>
+
+      <div className="phone-pit relative z-10 min-h-0 flex-1">
+        {loadingPit && !needsPlace && items.length === 0 ? (
+          <p className="relative z-30 mt-8 text-center text-sm text-muted">Filling the pit…</p>
+        ) : needsPlace ? (
+          <section className="relative z-30 mx-auto mt-4 max-w-md px-4">
+            <p className="mb-3 text-center text-[15px] text-ivory">This pit is around you. Share a location.</p>
+            <button type="button" className="here-btn mb-3" onClick={useHere} disabled={locating}>
+              {locating ? "Finding you…" : "Use my location"}
+            </button>
+            <div className="place-grid">
+              {CITIES.map((entry) => (
+                <button key={entry.id} type="button" className="place-chip" onClick={() => chooseCity(entry.id)}>
+                  <span className="mr-1">{entry.glyph}</span>
+                  {entry.label}
                 </button>
               ))}
-            </nav>
-            {corpus.needsPlace ? (
-              <div className="flex items-center gap-2">
-                <span className="hud-label">Location</span>
-                {city ? (
-                  <button
-                    onClick={() => {
-                      window.localStorage.removeItem(CITY_STORAGE_KEY);
-                      abortRef.current?.abort();
-                      nodes.current.clear();
-                      setCity(null);
-                      setQuery("");
-                      resetAnswers();
-                    }}
-                    className="rounded-full border border-brass/40 px-3 py-1 text-xs text-ivory hover:border-claw hover:text-claw"
-                  >
-                    {cityLabel} · change
-                  </button>
-                ) : (
-                  <span className="text-xs text-claw">needed</span>
-                )}
-              </div>
+            </div>
+          </section>
+        ) : (
+          <div className="absolute inset-0">
+            {items.map((item) => {
+              const probability = verdicts?.get(item.id) ?? 0;
+              const isUp = risenIds.has(item.id);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  ref={(node) => bindNode(item.id, node)}
+                  className="token"
+                  data-risen={isUp}
+                  data-shape={corpus.shape}
+                  style={{ opacity: verdicts && !isUp ? 0.38 : 1 }}
+                  title={isUp ? `${item.name} — ${Math.round(100 * probability)}%` : item.name}
+                  onClick={() => {
+                    if (item.href) window.open(item.href, "_blank", "noopener");
+                  }}
+                >
+                  <span className="token-glyph">
+                    <span className="token-face">
+                      {item.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.image} alt="" className="token-photo" />
+                      ) : (
+                        <span>{item.glyph}</span>
+                      )}
+                      <span className="token-face-title">{item.name}</span>
+                    </span>
+                  </span>
+                  <span className="token-label" style={{ maxWidth: layout.cell.width - 12 }}>
+                    <span className="line-clamp-2 block text-[11px] leading-tight font-medium text-ivory">{item.name}</span>
+                    <span className="mt-0.5 block text-[10px] leading-tight text-muted">{item.meta}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className={`pointer-events-none absolute inset-x-0 z-30 flex flex-col items-center px-4 ${phone ? "bottom-28" : "top-28"}`}>
+        <div className="pointer-events-auto w-full max-w-2xl">
+          {!phone && !needsPlace ? <p className="mb-3 text-center text-[13px] text-muted">{corpus.tagline}</p> : null}
+          {!phone ? askDock : null}
+          <div className="mt-2 min-h-8 text-center">
+            {status === "error" ? <p className="text-[12px] text-claw">{error}</p> : null}
+            {status === "ready" && matchCount === 0 ? (
+              <p className="animate-rise-in text-[12px] text-muted">Nothing in this pit fits. Loosen it.</p>
+            ) : null}
+            {status === "ready" && matchCount > 0 && missing > 0 ? (
+              <p className="animate-rise-in text-[12px] text-claw">{missing} could not be reached this time.</p>
             ) : null}
           </div>
-        </header>
-
-        <div className="pointer-events-none flex flex-col items-center px-5">
-          <div className="pointer-events-auto w-full max-w-2xl">
-            <p className="mb-3 text-center text-[13px] text-muted">
-              {needsCity ? "This pit is a place. Pick a city. Then ask." : corpus.tagline}
-            </p>
-            <div className="ask-dock relative rounded-2xl focus-within:border-claw">
-              <div className="pointer-events-none absolute inset-0 z-20 flex items-center overflow-hidden pr-14 pl-5 text-[17px] whitespace-pre">
-                <span aria-hidden className="invisible">
-                  {query}
-                </span>
-                {needsCity ? (
-                  <span className="text-ivory/35">London, New York, Tokyo, or Los Angeles</span>
-                ) : example ? (
-                  <button
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      setQuery(example);
-                      inputRef.current?.focus();
-                    }}
-                    tabIndex={-1}
-                    className="animate-example pointer-events-auto text-left text-ivory/35 transition-colors hover:text-ivory/80"
-                  >
-                    {example}
-                  </button>
-                ) : null}
-                {refinement ? (
-                  <>
-                    <button
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => setSuggestTick((n) => n + 1)}
-                      tabIndex={-1}
-                      className={`animate-example pointer-events-auto ${SUGGEST[suggestTick % SUGGEST.length]}`}
-                    >
-                      {" "}
-                      {refinement}
-                    </button>
-                    <button
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => setSuggestTick((n) => n + 1)}
-                      aria-label="Another suggestion"
-                      className="pointer-events-auto ml-1.5 grid size-7 place-items-center text-muted/70 hover:text-ivory"
-                    >
-                      ⇅
-                    </button>
-                  </>
-                ) : null}
-              </div>
-              <input
-                ref={inputRef}
-                value={query}
-                disabled={needsCity}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  setSuggestTick(0);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Tab" && refinement) {
-                    event.preventDefault();
-                    addRefinement();
-                  } else if (event.key === "Enter") {
-                    if (refinement) addRefinement();
-                    else void ask(query);
-                  } else if (event.key === "Escape") {
-                    setQuery("");
-                    resetAnswers();
-                  }
-                }}
-                maxLength={160}
-                aria-label="Ask the claw"
-                className="relative z-10 h-16 w-full bg-transparent pr-14 pl-5 text-[17px] text-ivory outline-none disabled:opacity-40"
-              />
-              <div className="absolute top-1/2 right-4 z-30 flex -translate-y-1/2 items-center gap-1">
-                {status === "thinking" ? (
-                  <span className="hud-label text-claw">asking</span>
-                ) : query ? (
-                  <button
-                    onClick={() => {
-                      abortRef.current?.abort();
-                      setQuery("");
-                      resetAnswers();
-                    }}
-                    aria-label="Clear"
-                    className="grid size-7 place-items-center rounded-full text-muted hover:text-ivory"
-                  >
-                    ×
-                  </button>
-                ) : (
-                  <span className="hud-label">ask</span>
-                )}
-              </div>
-            </div>
-            <div className="mt-4 min-h-14 text-center">
-              {status === "error" ? (
-                <p className="text-[12px] text-claw">
-                  {error}
-                  {verdicts && answeredQuery ? <span className="text-muted"> Still holding “{answeredQuery}”.</span> : null}
-                </p>
-              ) : null}
-              {status === "ready" && matchCount === 0 ? (
-                <p className="animate-rise-in text-[12px] text-muted">Nothing in this pit fits. Loosen it.</p>
-              ) : null}
-              {status === "ready" && matchCount > 0 && missing > 0 ? (
-                <p className="animate-rise-in text-[12px] text-claw">{missing} could not be reached this time.</p>
-              ) : null}
-            </div>
-          </div>
         </div>
+      </div>
 
-        <div className="mt-auto flex items-end justify-between px-5 pb-3 text-[10px] text-muted/80 sm:px-8">
-          <span>
-            {needsCity
-              ? "4 cities · pick one and the pit fills"
-              : `${items.length} ${corpus.collection} · every one considered on every question`}
-          </span>
-          <span className="hidden sm:inline">{footerSource}</span>
-        </div>
-        <noscript>
-          <p>JavaScript runs the pit. The catalog is listed here.</p>
-          <ol>
-            {corpus.items.map((item) => (
-              <li key={item.id}>{item.name}</li>
-            ))}
-          </ol>
-        </noscript>
+      {phone && !needsPlace ? <div className="pointer-events-auto relative z-40">{askDock}</div> : null}
+
+      <div className="pointer-events-none relative z-30 px-4 pb-2 text-[10px] text-muted/80 sm:absolute sm:inset-x-0 sm:bottom-2 sm:flex sm:justify-between sm:px-8">
+        <span>
+          {needsPlace
+            ? "Share a location and the pit fills"
+            : `${items.length} ${corpus.collection}${loadingPit ? " · loading" : ""}`}
+        </span>
+        <span className="mt-1 block sm:mt-0">{footerSource}</span>
       </div>
     </main>
   );

@@ -7,11 +7,12 @@ export const CORPORA: Record<CorpusId, Corpus> = {
   eats: {
     id: "eats",
     label: "Eats",
-    tagline: "Everywhere you could eat tonight. Ask for what you actually want.",
+    tagline: "What is actually around you. Ask for what you want.",
     collection: "restaurants",
     subject: "restaurant",
     shape: "chip",
     needsPlace: true,
+    live: "nearby",
     examples: [
       "somewhere quiet enough to actually talk",
       "hangover food, cheap, no queue",
@@ -30,6 +31,7 @@ export const CORPORA: Record<CorpusId, Corpus> = {
     subject: "dinner",
     shape: "chip",
     needsPlace: false,
+    live: "static",
     examples: [
       "twenty minutes, I am ruined",
       "vegetarian, not sad",
@@ -48,6 +50,7 @@ export const CORPORA: Record<CorpusId, Corpus> = {
     subject: "pub",
     shape: "chip",
     needsPlace: true,
+    live: "nearby",
     examples: [
       "a pub with a fire and no music",
       "quiet enough to talk",
@@ -66,6 +69,7 @@ export const CORPORA: Record<CorpusId, Corpus> = {
     subject: "wine",
     shape: "chip",
     needsPlace: false,
+    live: "static",
     examples: [
       "cheap, oysters, Tuesday",
       "steak, not a lecture",
@@ -79,11 +83,12 @@ export const CORPORA: Record<CorpusId, Corpus> = {
   movies: {
     id: "movies",
     label: "Movies",
-    tagline: "Stop scrolling the grid. Describe the evening.",
+    tagline: "What is out now. Describe the evening.",
     collection: "films",
     subject: "film",
     shape: "poster",
     needsPlace: false,
+    live: "screen",
     examples: [
       "something to fall asleep to",
       "films where the twist actually works",
@@ -97,11 +102,12 @@ export const CORPORA: Record<CorpusId, Corpus> = {
   series: {
     id: "series",
     label: "Series",
-    tagline: "Every flagship series on the big streamers. Ask for the night you want.",
+    tagline: "What is airing now. Ask for the night you want.",
     collection: "television series",
     subject: "series",
     shape: "poster",
     needsPlace: false,
+    live: "screen",
     examples: [
       "only a few episodes and it ended properly",
       "something we can both agree on",
@@ -120,6 +126,7 @@ export const CORPORA: Record<CorpusId, Corpus> = {
     subject: "thing to do",
     shape: "chip",
     needsPlace: true,
+    live: "static",
     examples: [
       "free, indoors, it is raining",
       "my parents are visiting and they are in their seventies",
@@ -138,6 +145,7 @@ export const CORPORA: Record<CorpusId, Corpus> = {
     subject: "gift",
     shape: "chip",
     needsPlace: false,
+    live: "static",
     examples: [
       "parents, they have too many things",
       "under twenty, actually useful",

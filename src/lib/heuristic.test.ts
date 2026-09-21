@@ -12,10 +12,10 @@ test("eight pits exist", () => {
 });
 
 test("place pits need a city", () => {
-  assert.equal(CORPORA.eats.needsPlace, true);
-  assert.equal(CORPORA.pubs.needsPlace, true);
-  assert.equal(CORPORA.do.needsPlace, true);
-  assert.equal(CORPORA.series.needsPlace, false);
+  assert.equal(CORPORA.eats.live, "nearby");
+  assert.equal(CORPORA.pubs.live, "nearby");
+  assert.equal(CORPORA.movies.live, "screen");
+  assert.equal(CORPORA.series.live, "screen");
 });
 
 test("quiet London rooms score", () => {
