@@ -35,6 +35,6 @@ export async function getCatalog(opts: {
     value = { items: corpus.items as Prize[], source: "curated snapshot" };
   }
 
-  cache.set(key, { at: Date.now(), value });
+  if (value.items.length) cache.set(key, { at: Date.now(), value });
   return value;
 }

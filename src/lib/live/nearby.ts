@@ -90,7 +90,7 @@ async function overpassNearby(kind: NearbyKind, lat: number, lng: number, signal
     kind === "pubs"
       ? '["amenity"~"pub|bar|biergarten"]'
       : '["amenity"~"restaurant|cafe|fast_food|food_court"]';
-  const query = `[out:json][timeout:20];(node${filter}(around:1400,${lat},${lng});way${filter}(around:1400,${lat},${lng}););out center 50;`;
+  const query = `[out:json][timeout:25];(node${filter}(around:2500,${lat},${lng});way${filter}(around:2500,${lat},${lng}););out center 60;`;
   const response = await fetch("https://overpass-api.de/api/interpreter", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": UA },

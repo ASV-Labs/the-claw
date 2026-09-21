@@ -41,7 +41,7 @@ export function Claw() {
   const [suggestTick, setSuggestTick] = useState(0);
   const [exampleTick, setExampleTick] = useState(0);
   const readyAt = useRef(0);
-  const rootRef = useRef<HTMLElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const engineRef = useRef<HeapPhysics | null>(null);
   const nodes = useRef(new Map<string, HTMLElement>());
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -60,6 +60,12 @@ export function Claw() {
     const apply = () => setPhone(media.matches);
     apply();
     media.addEventListener("change", apply);
+    const params = new URLSearchParams(window.location.search);
+    const lat = Number(params.get("lat"));
+    const lng = Number(params.get("lng"));
+    if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+      setCoords({ lat, lng });
+    }
     return () => media.removeEventListener("change", apply);
   }, []);
 
@@ -106,7 +112,7 @@ export function Claw() {
         : { width: 96, height: 86 }
       : cell;
     const perRow = Math.max(1, Math.floor(Math.min(width - 24, phone ? width - 16 : 1100) / unit.width));
-    const top = phone ? Math.max(90, 0.12 * height) : Math.max(250, 0.28 * height);
+    const top = phone ? Math.max(24, 0.08 * height) : Math.max(80, 0.18 * height);
     const rows = Math.max(1, Math.floor((height - (phone ? 180 : 220) - top) / unit.height));
     return { cell: unit, perRow, top, capacity: perRow * rows };
   }, [size, cell, phone, corpus.shape]);
@@ -177,7 +183,7 @@ export function Claw() {
     if (!root) return;
     const engine = new HeapPhysics(radius);
     engineRef.current = engine;
-    engine.setBounds(root.clientWidth, root.clientHeight, phone ? 168 : 52, Math.max(1, physicsIds.length));
+    engine.setBounds(root.clientWidth, root.clientHeight, phone ? 24 : 36, Math.max(1, physicsIds.length));
     if (physicsIds.length) engine.seed(physicsIds);
     setSize({ width: root.clientWidth, height: root.clientHeight });
     const tick = (now: number) => {
@@ -192,7 +198,7 @@ export function Claw() {
     };
     frameRef.current = requestAnimationFrame(tick);
     const onResize = () => {
-      engine.setBounds(root.clientWidth, root.clientHeight, phone ? 168 : 52, Math.max(1, physicsIds.length));
+      engine.setBounds(root.clientWidth, root.clientHeight, phone ? 24 : 36, Math.max(1, physicsIds.length));
       setSize({ width: root.clientWidth, height: root.clientHeight });
     };
     window.addEventListener("resize", onResize);
@@ -253,6 +259,7 @@ export function Claw() {
     nodes.current.clear();
     setCorpusId(id);
     setLiveItems(null);
+    setCatalogSource("");
     setQuery("");
     resetAnswers();
   };
@@ -431,7 +438,6 @@ export function Claw() {
 
   return (
     <main
-      ref={rootRef}
       className="cabinet relative h-dvh w-full overflow-hidden"
       data-phone={phone}
       data-wdi-product-proof="runnable-dom"
@@ -487,7 +493,7 @@ export function Claw() {
         ))}
       </nav>
 
-      <div className="phone-pit relative z-10 min-h-0 flex-1">
+      <div ref={rootRef} className="phone-pit relative z-10 min-h-0 flex-1 overflow-hidden">
         {loadingPit && !needsPlace && items.length === 0 ? (
           <p className="relative z-30 mt-8 text-center text-sm text-muted">Filling the pit…</p>
         ) : needsPlace ? (
